@@ -1,0 +1,12 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.5
+sentence-transformers==3.0.1
+torch>=2.0.0; platform_system!="Windows" or platform_machine!="x86"
+torch==2.3.0+cpu; platform_system=="Windows" and platform_machine=="x86"
+requests==2.32.3
+python-multipart==0.0.9
+
+
+
+
+

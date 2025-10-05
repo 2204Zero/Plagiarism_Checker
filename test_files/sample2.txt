@@ -1,0 +1,7 @@
+This is a sample document for testing plagiarism detection.
+It contains multiple lines of text that can be compared.
+The system should detect exact matches and provide detailed information.
+Line numbers and actual text should be shown in the results.
+This makes the plagiarism detection more authentic and trustworthy.
+Some additional content to make it longer.
+
