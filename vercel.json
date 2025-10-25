@@ -1,6 +1,6 @@
 {
-  "projects": {
-    "rootDirectory": "Front-end"
-  },
+  "builds": [
+    { "src": "Front-end/package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }
