@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "rootDirectory": "Front-end"
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
+}
