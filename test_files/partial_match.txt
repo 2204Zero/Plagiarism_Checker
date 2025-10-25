@@ -1,0 +1,4 @@
+This is a sample document for testing plagiarism detection.
+It contains multiple lines of text that can be compared.
+This is some different content that should result in a partial match.
+This makes the plagiarism detection more authentic and trustworthy.

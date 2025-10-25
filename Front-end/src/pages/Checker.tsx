@@ -24,25 +24,9 @@ const Checker = () => {
   const [isBackendConnected, setIsBackendConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/auth");
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        navigate("/auth");
-      }
-    });
-
-    // Check backend connection
+    // Only check backend connection, no authentication required
     PlagiarismAPI.healthCheck().then(setIsBackendConnected);
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const handleCheck = async () => {
     if (!selectedFile) {

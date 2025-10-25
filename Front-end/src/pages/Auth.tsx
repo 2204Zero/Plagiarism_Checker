@@ -39,33 +39,39 @@ const Auth = () => {
     try {
       setIsLoading(true);
       
+      // Use direct API call instead of Supabase client
+      const response = await fetch(`http://localhost:8000/auth/${type}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Authentication failed');
+      }
+      
+      const data = await response.json();
+      
+      // Store auth token in localStorage
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user_email', email);
+      
       if (type === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-        
-        if (error) throw error;
-        
         toast({
           title: "Success!",
-          description: "Check your email for the confirmation link.",
+          description: "Account created successfully.",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) throw error;
-        
         toast({
           title: "Welcome back!",
           description: "You've successfully signed in.",
         });
+        
+        // Redirect after successful login
+        navigate("/checker");
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';

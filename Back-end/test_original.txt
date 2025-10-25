@@ -1,0 +1,5 @@
+This is a test file for plagiarism detection.
+It contains several sentences that should be analyzed.
+The algorithm should detect partial matches between files.
+We need to ensure that the similarity score is accurate.
+This is an important feature of our plagiarism checker.

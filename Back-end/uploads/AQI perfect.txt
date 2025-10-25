@@ -1,0 +1,117 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <DHT.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET    -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+#define DHTPIN 4         
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+#define BUZZER_PIN 5     
+#define MQ135_ANALOG 33  
+#define MQ135_DIGITAL 32 
+#define DSM501_PM25 34   
+#define DSM501_PM10 35   
+
+int MQ135_THRESHOLD = 2000; 
+int DUST_THRESHOLD  = 2000; 
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, HIGH); // buzzer OFF initially
+
+  pinMode(MQ135_DIGITAL, INPUT);
+  pinMode(DSM501_PM25, INPUT);
+  pinMode(DSM501_PM10, INPUT);
+
+  dht.begin();
+
+  // Initialize OLED
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+
+  // --- Startup Splash Screen ---
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println("AI&DS(B)");
+  display.println("");
+  display.println("Team Members:");
+  display.println("1. Kuldeep Sihag-84");
+  display.println("2. Kumawat Yogesh-85");
+  display.println("3. Lakshya Goyal-89");
+  display.println("4. Lakshya Singhal-90");
+  display.println("5. Manish Sharma-94");
+  display.display();
+  delay(5000); // show for 5 seconds
+
+  // --- Title Screen ---
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0,20);
+  display.println("Air Quality Monitoring System");
+  display.display();
+  delay(3000);
+}
+
+void loop() {
+  // --- Sensor readings ---
+  float temp = dht.readTemperature();
+  float hum = dht.readHumidity();
+
+  int mq135_digital = digitalRead(MQ135_DIGITAL);
+  int dust_pm10 = analogRead(DSM501_PM10);
+
+  int mq135_avg = 0;
+  int dust_pm25_avg = 0;
+  for (int i = 0; i < 10; i++) {
+    mq135_avg += analogRead(MQ135_ANALOG);
+    dust_pm25_avg += analogRead(DSM501_PM25);
+    delay(5);
+  }
+  mq135_avg /= 10;
+  dust_pm25_avg /= 10;
+
+  // --- Serial Monitor ---
+  Serial.print("Temp: "); Serial.print(temp); Serial.print(" °C  ");
+  Serial.print("Humidity: "); Serial.print(hum); Serial.println(" %");
+
+  Serial.print("MQ135 Avg: "); Serial.print(mq135_avg);
+  Serial.print(" | Digital: "); Serial.println(mq135_digital);
+
+  Serial.print("Dust PM2.5 Avg: "); Serial.print(dust_pm25_avg);
+  Serial.print(" | PM10: "); Serial.println(dust_pm10);
+
+  // --- OLED Display ---
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println("Air Quality Monitoring");
+  display.println("---------------------");
+  display.print("Temp: "); display.print(temp); display.println(" C");
+  display.print("Humidity: "); display.print(hum); display.println(" %");
+  display.print("MQ135 Avg: "); display.println(mq135_avg);
+  display.print("Dust PM2.5: "); display.println(dust_pm25_avg);
+  display.print("Dust PM10: "); display.println(dust_pm10);
+  display.display();
+
+  // --- Buzzer logic (active low) ---
+  if (mq135_avg > MQ135_THRESHOLD || dust_pm25_avg > DUST_THRESHOLD) {
+    digitalWrite(BUZZER_PIN, LOW);   // buzzer ON
+  } else {
+    digitalWrite(BUZZER_PIN, HIGH);  // buzzer OFF
+  }
+
+  delay(2000);
+}

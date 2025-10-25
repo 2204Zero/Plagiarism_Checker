@@ -1,0 +1,5 @@
+This is a test file with some similar content.
+It contains different sentences that should be analyzed.
+The algorithm must correctly identify partial similarities.
+We need to ensure that the similarity score reflects actual overlap.
+This is a completely different sentence from the original.

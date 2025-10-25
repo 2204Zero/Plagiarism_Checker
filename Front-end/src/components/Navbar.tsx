@@ -1,32 +1,8 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FileCheck } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
 
 const Navbar = () => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  };
 
   return (
     <nav className="border-b border-border bg-card">
@@ -44,24 +20,11 @@ const Navbar = () => {
             >
               About
             </Link>
-            {user ? (
-              <>
-                <Link to="/checker">
-                  <Button variant="ghost" size="sm">
-                    Checker
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  Logout
-                </Button>
-              </>
-            ) : (
-              <Link to="/auth">
-                <Button variant="outline" size="sm">
-                  Login
-                </Button>
-              </Link>
-            )}
+            <Link to="/checker">
+              <Button variant="ghost" size="sm">
+                Checker
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

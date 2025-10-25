@@ -1,10 +1,12 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
 import sys
 import uvicorn
-from typing import Optional
+import secrets
+from typing import Optional, Dict
+from pydantic import BaseModel
 
 # Ensure this directory is on sys.path so `import checker` works despite hyphen in parent dir name
 CURRENT_DIR = os.path.dirname(__file__)
@@ -27,6 +29,44 @@ app.add_middleware(
 
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+# Simple in-memory user storage for demo purposes
+users = {}
+tokens = {}
+
+class UserCredentials(BaseModel):
+    email: str
+    password: str
+
+@app.post("/auth/login")
+async def login(credentials: UserCredentials):
+    email = credentials.email
+    password = credentials.password
+    
+    if email not in users or users[email] != password:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Generate token
+    token = secrets.token_hex(16)
+    tokens[token] = email
+    
+    return {"token": token, "email": email}
+
+@app.post("/auth/signup")
+async def signup(credentials: UserCredentials):
+    email = credentials.email
+    password = credentials.password
+    
+    if email in users:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    users[email] = password
+    
+    # Generate token
+    token = secrets.token_hex(16)
+    tokens[token] = email
+    
+    return {"token": token, "email": email}
 
 
 @app.post("/check")
