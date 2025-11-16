@@ -1,5 +1,4 @@
-6. Certifications (MS, NVidia etc.)
-7. Chat-GPT
+ Chat-GPT
 8. BBC
 9. ScienceDirect.com
 10. Cursor, Trae (code editors)
