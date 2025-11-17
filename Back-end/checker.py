@@ -293,6 +293,16 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
                     refined_startB = offB + best.b
                     refined_endB = offB + best.b + best.size
 
+            # drop low-quality overlaps
+            if refined_endB - refined_startB < 6:
+                continue
+            try:
+                sm2 = difflib.SequenceMatcher(None, text_a[refined_startA:refined_endA], text_b_val[refined_startB:refined_endB])
+                if sm2.ratio() < 0.5:
+                    continue
+            except Exception:
+                pass
+
             if refined_endA <= refined_startA and raw_endA > raw_startA:
                 refined_startA, refined_endA = raw_startA, raw_endA
             if refined_endB <= refined_startB and raw_endB > raw_startB:
@@ -323,6 +333,134 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
             })
         except Exception:
             pass
+
+    def _paragraph_spans(text: str) -> List[Dict[str, int]]:
+        spans: List[Dict[str, int]] = []
+        pos = 0
+        start = 0
+        gap = False
+        for line in text.splitlines(True):
+            if line.strip() == "":
+                if not gap:
+                    gap = True
+            else:
+                if gap and pos > start:
+                    spans.append({"start": start, "end": pos})
+                    start = pos
+                gap = False
+            pos += len(line)
+        if pos > start:
+            spans.append({"start": start, "end": pos})
+        return spans
+
+    para_a = _paragraph_spans(text_a)
+    para_b = _paragraph_spans(text_b_val)
+
+    def _overlaps(a1: int, a2: int, b1: int, b2: int) -> bool:
+        return not (a2 <= b1 or a1 >= b2)
+
+    for pa in para_a:
+        sa = pa["start"]
+        ea = pa["end"]
+        ta = text_a[sa:ea]
+        merged_eq_segments: List[tuple[int,int,int,int]] = []
+        def _is_noise_gap(seg: str) -> bool:
+            if not seg:
+                return True
+            return all(not ch.isalnum() for ch in seg)
+        for pb in para_b:
+            sb = pb["start"]
+            eb = pb["end"]
+            tb = text_b_val[sb:eb]
+            if not ta.strip() or not tb.strip():
+                continue
+            smp = difflib.SequenceMatcher(None, ta, tb)
+            for tag, a0, a1, b0, b1 in smp.get_opcodes():
+                if tag != 'equal':
+                    continue
+                size = a1 - a0
+                if size < 20:
+                    continue
+                rsa = sa + a0
+                rea = sa + a1
+                rsb = sb + b0
+                reb = sb + b1
+                if merged_eq_segments:
+                    lsA0, lsA1, lsB0, lsB1 = merged_eq_segments[-1]
+                    gapA = rsa - lsA1
+                    gapB = rsb - lsB1
+                    gapAtext = text_a[lsA1:rsa]
+                    gapBtext = text_b_val[lsB1:rsb]
+                    if gapA <= 10 and gapB <= 10 and _is_noise_gap(gapAtext) and _is_noise_gap(gapBtext):
+                        # merge into last
+                        merged_eq_segments[-1] = (lsA0, rea, lsB0, reb)
+                    else:
+                        merged_eq_segments.append((rsa, rea, rsb, reb))
+                else:
+                    merged_eq_segments.append((rsa, rea, rsb, reb))
+        for rsa, rea, rsb, reb in merged_eq_segments:
+            if any(_overlaps(rsb, reb, h.get("start", 0), h.get("end", 0)) for h in local_highlights):
+                continue
+            la, lta = _line_meta(text_a, line_offsets_a, rsa, rea)
+            lb, ltb = _line_meta(text_b_val, line_offsets_b, rsb, reb)
+            lsa = _line_number(line_offsets_a, max(rsa - 1, rsa))
+            lea = _line_number(line_offsets_a, max(rea - 1, rsa))
+            lsb = _line_number(line_offsets_b, max(rsb - 1, rsb))
+            leb = _line_number(line_offsets_b, max(reb - 1, rsb))
+            local_highlights.append({
+                "start": rsb,
+                "end": reb,
+                "source": "local",
+                "score": cpp_result.get("localScore", 0.0),
+                "textA": text_a[rsa:rea],
+                "textB": text_b_val[rsb:reb],
+                "lineA": la,
+                "lineB": lb,
+                "lineStartA": lsa,
+                "lineEndA": lea,
+                "lineStartB": lsb,
+                "lineEndB": leb,
+                "charStartA": rsa,
+                "charEndA": rea,
+                "charStartB": rsb,
+                "charEndB": reb,
+                "lineTextA": lta,
+                "lineTextB": ltb,
+                "matchType": "paragraph",
+                "sourceFile": file_a_name,
+                "targetFile": file_b_name,
+            })
+
+    def _overlap_ratio(s1: int, e1: int, s2: int, e2: int) -> float:
+        inter = max(0, min(e1, e2) - max(s1, s2))
+        uni = max(e1, e2) - min(s1, s2)
+        return (inter / uni) if uni > 0 else 0.0
+
+    def _dedup_highlights(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        items_sorted = sorted(items, key=lambda x: (int(x.get("lineB", 0)), int(x.get("start", 0))))
+        result: List[Dict[str, Any]] = []
+        for h in items_sorted:
+            if not result:
+                result.append(h)
+                continue
+            last = result[-1]
+            rB = _overlap_ratio(int(h.get("start", 0)), int(h.get("end", 0)), int(last.get("start", 0)), int(last.get("end", 0)))
+            rA = _overlap_ratio(int(h.get("charStartA", 0)), int(h.get("charEndA", 0)), int(last.get("charStartA", 0)), int(last.get("charEndA", 0)))
+            same_lines = int(h.get("lineA", 0)) == int(last.get("lineA", -1)) and int(h.get("lineB", 0)) == int(last.get("lineB", -1))
+            if rB >= 0.6 and rA >= 0.4 and same_lines:
+                len_h = (int(h.get("end", 0)) - int(h.get("start", 0))) + (int(h.get("charEndA", 0)) - int(h.get("charStartA", 0)))
+                len_last = (int(last.get("end", 0)) - int(last.get("start", 0))) + (int(last.get("charEndA", 0)) - int(last.get("charStartA", 0)))
+                prio_h = 2 if h.get("matchType") == "paragraph" else 1
+                prio_last = 2 if last.get("matchType") == "paragraph" else 1
+                if prio_h > prio_last or (prio_h == prio_last and len_h > len_last):
+                    result[-1] = h
+                else:
+                    pass
+            else:
+                result.append(h)
+        return result
+
+    local_highlights = _dedup_highlights(local_highlights)
 
     return {
         "overallScore": overall,

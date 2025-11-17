@@ -187,44 +187,52 @@ public:
 		int total = 0;
 		int matched = 0;
         // Use a sliding window with step size 4 for better performance while maintaining accuracy
-        int lastEndB = -1;
+        auto merge_or_add = [&](int sA, int eA, int sB, int eB){
+            // try to merge with an existing span that overlaps on B
+            for (auto &sp : spans) {
+                bool overlapB = !(eB <= sp.startB || sB >= sp.endB);
+                bool overlapA = !(eA <= sp.startA || sA >= sp.endA);
+                if (overlapB && overlapA) {
+                    sp.startA = std::min(sp.startA, sA);
+                    sp.endA = std::max(sp.endA, eA);
+                    sp.startB = std::min(sp.startB, sB);
+                    sp.endB = std::max(sp.endB, eB);
+                    sp.textA = a.rawSlice(sp.startA, sp.endA);
+                    sp.textB = b.rawSlice(sp.startB, sp.endB);
+                    sp.lineA = a.getLineNumber(sp.startA);
+                    sp.lineB = b.getLineNumber(sp.startB);
+                    return;
+                }
+            }
+            spans.push_back({
+                sA, eA, sB, eB,
+                a.rawSlice(sA, eA),
+                b.rawSlice(sB, eB),
+                a.getLineNumber(sA),
+                b.getLineNumber(sB)
+            });
+        };
+
         for (int i = 0; i + window <= (int)a.text.size(); i += 4) {
             std::string pattern = a.text.substr(i, window);
             auto occ = findOccurrences(b.text, pattern);
             total++;
             if (!occ.empty()) {
                 matched++;
-                int startA = i;
-                int endA = i + window;
-                int startB = occ[0];
-                int endB = startB + window;
-                // Extend backwards
-                while (startA > 0 && startB > 0 && a.text[startA - 1] == b.text[startB - 1]) {
-                    startA--; startB--;
-                }
-                // Extend forwards
-                while (endA < (int)a.text.size() && endB < (int)b.text.size() && a.text[endA] == b.text[endB]) {
-                    endA++; endB++;
-                }
-                // Deduplicate overlapping on B
-                if (lastEndB >= 0 && startB <= lastEndB) {
-                    // overlap with previous; only extend previous if this goes further
-                    if (!spans.empty() && endB > spans.back().endB) {
-                        spans.back().endA = std::max(spans.back().endA, endA);
-                        spans.back().endB = endB;
-                        spans.back().textA = a.rawSlice(spans.back().startA, spans.back().endA);
-                        spans.back().textB = b.rawSlice(spans.back().startB, spans.back().endB);
+                for (int startB : occ) {
+                    int startA = i;
+                    int endA = i + window;
+                    int endB = startB + window;
+                    // Extend backwards
+                    while (startA > 0 && startB > 0 && a.text[startA - 1] == b.text[startB - 1]) {
+                        startA--; startB--;
                     }
-                } else {
-                    spans.push_back({
-                        startA, endA, startB, endB,
-                        a.rawSlice(startA, endA),
-                        b.rawSlice(startB, endB),
-                        a.getLineNumber(startA),
-                        b.getLineNumber(startB)
-                    });
+                    // Extend forwards
+                    while (endA < (int)a.text.size() && endB < (int)b.text.size() && a.text[endA] == b.text[endB]) {
+                        endA++; endB++;
+                    }
+                    merge_or_add(startA, endA, startB, endB);
                 }
-                lastEndB = std::max(lastEndB, endB);
             }
         }
 		if (total == 0) return 0.0;
