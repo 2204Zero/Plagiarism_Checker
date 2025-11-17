@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import FileUpload from "@/components/FileUpload";
@@ -8,17 +7,15 @@ import DetailedReportDialog from "@/components/DetailedReportDialogue";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Database, Sparkles, FileText } from "lucide-react";
+import { Database, FileText } from "lucide-react";
 import { PlagiarismAPI, PlagiarismCheckResult } from "@/services/api";
 
 const Checker = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [secondFile, setSecondFile] = useState<File | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [plagiarismScore, setPlagiarismScore] = useState<number | null>(null);
-  const [checkType, setCheckType] = useState<"local" | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [checkResult, setCheckResult] = useState<PlagiarismCheckResult | null>(null);
   const [isBackendConnected, setIsBackendConnected] = useState<boolean | null>(null);
@@ -57,7 +54,6 @@ const Checker = () => {
     }
 
     setIsChecking(true);
-    setCheckType("local");
 
     try {
       const result = await PlagiarismAPI.checkPlagiarism({
@@ -204,7 +200,6 @@ const Checker = () => {
       <DetailedReportDialog
         open={showReport}
         onOpenChange={setShowReport}
-        checkType={checkType}
         checkResult={checkResult}
       />
     </div>

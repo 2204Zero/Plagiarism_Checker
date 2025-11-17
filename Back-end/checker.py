@@ -1,4 +1,3 @@
-import importlib
 import json
 import os
 import sys
@@ -48,52 +47,23 @@ def _run_cpp_checker(text_a: str, text_b: str) -> Dict[str, Any]:
 
 def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) -> Dict[str, Any]:
     """
-    Compare two files using local comparison and AI semantic analysis.
-    Returns a unified JSON with scores and highlights.
+    Compare two files using local comparison and return structured highlights.
     """
     # Only support local mode now
     if mode != "local":
         return {"error": "Only local mode is supported"}
 
-    def _extract_docx_text(path: str) -> str:
-        try:
-            from docx import Document  # type: ignore
-            doc = Document(path)
-            return "\n".join([p.text for p in doc.paragraphs if p.text])
-        except Exception:
-            return ""
-
-    def _extract_doc_text(path: str) -> str:
-        """
-        Attempt to extract text from legacy .doc files using textract if available.
-        Falls back to empty string when parsing fails or the dependency is missing.
-        """
-        try:
-            textract = importlib.import_module("textract")  # type: ignore
-        except ModuleNotFoundError:
-            return ""
-        try:
-            extracted = textract.process(path)
-        except Exception:
-            return ""
-        if isinstance(extracted, bytes):
-            return extracted.decode("utf-8", errors="ignore")
-        return str(extracted)
+    allowed_extensions = {".txt"}
+    unsupported_formats: List[str] = []
 
     def read_file_text(path: Optional[str]) -> str:
         if not path or not os.path.exists(path):
             return ""
         ext = os.path.splitext(path)[1].lower()
+        if ext and ext not in allowed_extensions:
+            unsupported_formats.append(ext)
+            return ""
         try:
-            if ext == ".docx":
-                docx_text = _extract_docx_text(path)
-                if docx_text:
-                    return docx_text
-            if ext == ".doc":
-                doc_text = _extract_doc_text(path)
-                if doc_text:
-                    return doc_text
-            # Fallback: treat as text
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read()
         except Exception:
@@ -103,6 +73,9 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
     text_b_val = read_file_text(file_b_path)
     if not text_b_val:
         text_b_val = text_b or ""
+
+    if unsupported_formats:
+        return {"error": "Only .txt files are currently supported"}
 
     if not text_a or not text_b_val:
         return {"error": "Both files are required for comparison"}
@@ -115,7 +88,7 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
     except Exception as e:
         return {"error": f"Check failed: {str(e)}"}
 
-    # Use only local score (no AI)
+    # Use only local score
     overall = float(cpp_result.get("localScore", 0.0))
 
     # Process local matches only, merging contiguous spans for clarity
@@ -354,13 +327,8 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
     return {
         "overallScore": overall,
         "localScore": cpp_result.get("localScore", 0.0),
-        "aiScore": 0.0,  # No AI
-        "webScore": 0.0,  # No web checking
-        "webSources": [],  # No web sources
         "highlights": local_highlights,
         "localHighlights": local_highlights,
-        "aiHighlights": [],  # No AI highlights
-        "webHighlights": [],  # No web highlights
         "mode": "local",
         "sourceFullText": text_a,
         "targetFullText": text_b_val,

@@ -52,9 +52,9 @@ const About = () => {
               <Card>
                 <CardContent className="pt-6 text-center space-y-4">
                   <Globe className="h-12 w-12 text-primary mx-auto" />
-                  <h3 className="text-xl font-semibold">AI-Powered</h3>
+                  <h3 className="text-xl font-semibold">Comprehensive Checks</h3>
                   <p className="text-muted-foreground">
-                    Advanced Python AI models check against internet sources
+                    Deep, line-by-line comparisons ensure every overlap is captured clearly
                   </p>
                 </CardContent>
               </Card>

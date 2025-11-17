@@ -27,8 +27,6 @@ const FileUpload = ({ onFileSelect, selectedFile }: FileUploadProps) => {
     onDragLeave: () => setIsDragActive(false),
     accept: {
       "text/plain": [".txt"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
     },
     multiple: false,
   });
@@ -72,7 +70,7 @@ const FileUpload = ({ onFileSelect, selectedFile }: FileUploadProps) => {
           <div>
             <p className="text-lg font-medium">Drop your file or Click to upload</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Supports TXT, DOC, DOCX (Max 10MB)
+              Supports TXT only (Max 10MB)
             </p>
           </div>
         </div>

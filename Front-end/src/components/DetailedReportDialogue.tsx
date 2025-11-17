@@ -8,20 +8,18 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { PlagiarismCheckResult } from "@/services/api";
 
 interface DetailedReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  checkType: "local" | "ai" | null;
   checkResult?: PlagiarismCheckResult | null;
 }
 
 const DetailedReportDialog = ({
   open,
   onOpenChange,
-  checkType,
   checkResult,
 }: DetailedReportDialogProps) => {
   const formatLineRange = (start?: number | null, end?: number | null) => {
@@ -137,9 +135,7 @@ const DetailedReportDialog = ({
         <DialogHeader>
           <DialogTitle>Detailed Plagiarism Report</DialogTitle>
           <DialogDescription>
-            {checkType === "local"
-              ? "Matching lines and words found between the two documents"
-              : "Sources found on the internet with similar content"}
+            Matching lines and words found between the two documents
           </DialogDescription>
         </DialogHeader>
 
@@ -170,36 +166,6 @@ const DetailedReportDialog = ({
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Web Sources */}
-              {checkResult.webSources && checkResult.webSources.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Web Sources</h3>
-                  {checkResult.webSources.map((source, index) => (
-                    <Card key={index}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h4 className="font-semibold mb-1">{source.title}</h4>
-                            <a
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline flex items-center gap-1"
-                            >
-                              {source.url}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-                          <span className="text-sm font-semibold text-destructive">
-                            {source.score.toFixed(1)}% Match
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
 
               {/* File Matches */}
               {checkResult.localHighlights && checkResult.localHighlights.length > 0 && (
@@ -341,8 +307,7 @@ const DetailedReportDialog = ({
                 </div>
               )}
 
-              {(!checkResult.webSources || checkResult.webSources.length === 0) && 
-               (!checkResult.highlights || checkResult.highlights.length === 0) && (
+              {(!checkResult.highlights || checkResult.highlights.length === 0) && (
                 <div className="text-center py-8 text-muted-foreground">
                   <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No detailed matches found</p>

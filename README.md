@@ -1,12 +1,12 @@
 # Plagiarism Checker
 
-A full‑stack plagiarism detection tool with a React + Vite frontend and a FastAPI backend. It focuses on precise local file comparison using a high‑performance C++ checker, with an extensible path toward AI semantic matching and web‑source scanning.
+A full‑stack plagiarism detection tool with a React + Vite frontend and a FastAPI backend. It focuses on precise local file comparison using a high‑performance C++ checker.
 
 ## 1) Project Overview
 
 - Purpose: Detect overlapping content between two documents and present clear, actionable reports.
 - Architecture: `Front-end/` (React, TypeScript, Tailwind, shadcn‑ui) + `Back-end/` (FastAPI, Python, C++ binary).
-- Status: Local file comparison implemented end‑to‑end; AI and web checks scaffolded but currently disabled by the orchestrator.
+- Status: Local file comparison implemented end‑to‑end.
 - Ports: Frontend on `http://localhost:8080`, backend on `http://localhost:8000`.
 
 ## 2) Repository Structure
@@ -14,7 +14,7 @@ A full‑stack plagiarism detection tool with a React + Vite frontend and a Fast
 - `Back-end/`
   - `main.py`: FastAPI app; CORS enabled; endpoints for auth and plagiarism check.
   - `checker.py`: Orchestrates local comparison via C++ binary; returns scores and highlights.
-  - `ai_checker.py`: Semantic similarity and web‑source utilities (chunking, sentence‑transformers, SerpAPI/Bing). Not currently invoked by `checker.py`.
+  - `ai_checker.py`: Legacy semantic/web utilities kept for future experimentation (currently unused).
   - `cpp_checker/`: C++ source (`main.cpp`) and a sample compiled artifact; compiled binary is expected at `bin/cpp_checker.exe` (Windows) or `bin/cpp_checker` (Unix).
   - `bin/cpp_checker.exe`: Required by `checker.py` on Windows for fast exact‑match comparisons.
   - `uploads/`: Temporary storage for received files (`fileA`, `fileB`) during checks.
@@ -56,16 +56,16 @@ A full‑stack plagiarism detection tool with a React + Vite frontend and a Fast
     - `fileA`: first document (required in local mode).
     - `fileB`: second document (required in local mode, unless `textB` provided).
     - `textB`: optional raw text instead of `fileB`.
-- Behavior: `checker.run_checks(...)` reads text from `fileA` and `fileB` (UTF‑8), calls the C++ binary for exact matches, and returns a JSON with `overallScore`, `localScore`, `highlights`, etc. AI and web fields are present but set to `0.0`/empty.
+- Behavior: `checker.run_checks(...)` reads text from `fileA` and `fileB` (UTF‑8), calls the C++ binary for exact matches, and returns a JSON with `overallScore`, `localScore`, and detailed highlight metadata.
 - Health check: visit `http://localhost:8000/docs` (FastAPI’s OpenAPI UI) — the frontend probes this for connectivity.
-- Important: TXT/DOC/DOCX uploads are accepted in the UI, but the backend currently reads files as text; use `.txt` for best results (or add a text‑extraction step before sending data).
+- Important: Only `.txt` uploads are supported end-to-end.
 
 ## 5) Frontend Details
 
 - Stack: Vite + React + TypeScript, Tailwind CSS, shadcn‑ui, Radix primitives.
 - Routing: `App.tsx` defines routes `"/"`, `"/auth"`, `"/checker"`, `"/about"`, `"*"`.
 - Core components:
-  - `FileUpload`: Drag‑and‑drop, single file select, accepts `txt/doc/docx`.
+  - `FileUpload`: Drag‑and‑drop, single file select, accepts `.txt`.
   - `PlagiarismGauge`: Animated circular gauge showing the plagiarism percentage.
   - `DetailedReportDialogue`: Modal showing overall score, local highlights, and (when available) web sources.
 - Service client: `src/services/api.ts` sets `API_BASE_URL = 'http://localhost:8000'` and implements `checkPlagiarism()` (POST `/check`) and `healthCheck()` that hits `/docs`.
@@ -108,31 +108,28 @@ curl -X POST "http://localhost:8000/check" \
   -F fileB=@test_files/sample2.txt
 ```
 
-Returns JSON with keys: `overallScore`, `localScore`, `highlights` (array of matches with `start`, `end`, `textA`, `textB`, `lineA`, `lineB`, `matchType`), and placeholders for `aiScore`, `webScore`.
+Returns JSON with keys: `overallScore`, `localScore`, and `highlights` (array of matches with `start`, `end`, `textA`, `textB`, `lineA`, `lineB`, `matchType`).
 
 ## 8) Configuration
 
 - Frontend API base: edit `src/services/api.ts` (`API_BASE_URL`) when deploying the backend elsewhere.
 - Supabase OAuth (optional): set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `Front-end/.env` if using social login. The app otherwise relies on backend email/password.
-- AI/Web search (backend): set `SERPAPI_KEY` or `BING_API_KEY` to enable the utilities in `ai_checker.py` (note: `checker.py` currently does not invoke AI/web checks).
 - CORS: all origins allowed in development; restrict in production via `CORSMiddleware` in `main.py`.
 
 ## 9) Implementation Notes
 
 - C++ checker: `checker.py` writes temp files, runs `bin/cpp_checker*`, and parses JSON output. If the binary is missing, the service returns `localScore: 0.0` and an error message.
-- Text handling: files are read as UTF‑8 with `errors="ignore"`. For rich formats (DOC/DOCX), add a pre‑processing step to extract plain text before sending to `/check`.
+- Text handling: files are read as UTF‑8 with `errors="ignore"`; only `.txt` uploads are supported.
 - In‑memory auth: backend stores users/tokens in dictionaries; this is for demo only and not production‑grade.
 - Health probe: frontend checks `GET /docs` and toggles a “connected/disconnected” badge in the Checker page.
 
 ## 10) Limitations & Roadmap
 
-- Current orchestrator supports only `mode=local`; AI and web checks exist in `ai_checker.py` but are not wired in.
-- Exact matching only from the C++ tool; semantic similarity and web results are placeholders in the JSON.
+- Current orchestrator supports only `mode=local`.
+- Exact matching only from the C++ tool; no semantic/web scoring is active.
 - No persistent database; auth is ephemeral and resets on server restart.
-- File format caveat: TXT/DOC/DOCX accepted by UI, but backend expects plain text. Add text extraction to improve UX.
+- File format caveat: only `.txt` uploads are supported end-to-end.
 - Planned:
-  - Integrate `semantic_similarity()` from `ai_checker.py` and unify scoring for `overallScore`.
-  - Add web source scanning via SerpAPI/Bing with opt‑in env vars.
   - Replace in‑memory auth with a proper user store.
   - Harden CORS and security policies for production.
 
@@ -149,7 +146,6 @@ Returns JSON with keys: `overallScore`, `localScore`, `highlights` (array of mat
   - Output: `Front-end/dist/` — served statically (configured for Vercel via `vercel.json`).
 - Backend:
   - Container: build with the provided Dockerfile and run behind a reverse proxy; expose `8000`.
-  - Environment: set search API keys only if enabling web checks.
   - Security: configure CORS for allowed origins only; replace demo auth.
 
 ## 13) Troubleshooting
@@ -164,12 +160,11 @@ Returns JSON with keys: `overallScore`, `localScore`, `highlights` (array of mat
 - License: Not specified; treat as private unless stated otherwise.
 - Contributions: Open issues/PRs with focused changes; please include reproducible steps and test samples.
 
-A comprehensive plagiarism detection system with both local file comparison and AI-powered web source checking capabilities.
+A comprehensive plagiarism detection system built around precise local comparisons.
 
 ## Features
 
 - **Local File Comparison**: Compare two documents directly for similarity
-- **AI-Powered Web Search**: Check documents against web sources using semantic similarity
 - **Real-time Results**: Get instant plagiarism scores and detailed reports
 - **Modern UI**: Built with React, TypeScript, and Tailwind CSS
 - **Backend API**: FastAPI-based Python backend with C++ performance optimization
@@ -243,9 +238,7 @@ A comprehensive plagiarism detection system with both local file comparison and 
 
 1. **Authentication**: Sign up or log in to access the plagiarism checker
 2. **Upload Files**: Upload your document(s) for checking
-3. **Choose Check Type**:
-   - **Local Check**: Compare with another uploaded file
-   - **AI Check**: Search the web for similar content
+3. **Run Check**: Compare with another uploaded file using local analysis
 4. **View Results**: Get detailed plagiarism scores and source matches
 
 ## API Endpoints
@@ -254,19 +247,16 @@ A comprehensive plagiarism detection system with both local file comparison and 
 Check for plagiarism between documents.
 
 **Parameters:**
-- `mode`: "local" or "ai"
+- `mode`: `"local"`
 - `fileA`: First document file (required)
-- `fileB`: Second document file (for local mode)
-- `textB`: Text content (alternative to fileB)
+- `fileB`: Second document file (required unless `textB` is provided)
+- `textB`: Text content (alternative to `fileB`)
 
 **Response:**
 ```json
 {
   "overallScore": 85.5,
   "localScore": 90.0,
-  "aiScore": 80.0,
-  "webScore": 75.0,
-  "webSources": [...],
   "highlights": [...]
 }
 ```
@@ -274,11 +264,7 @@ Check for plagiarism between documents.
 ## Configuration
 
 ### Backend Environment Variables
-- `SERPAPI_KEY`: For web search functionality (optional)
-- `BING_API_KEY`: Alternative to SerpAPI (optional)
-- `WEIGHT_LOCAL`: Weight for local comparison (default: 0.5)
-- `WEIGHT_AI`: Weight for AI similarity (default: 0.3)
-- `WEIGHT_WEB`: Weight for web sources (default: 0.2)
+- None required for the local comparison workflow.
 
 ### Frontend Configuration
 - Backend URL can be configured in `Front-end/src/services/api.ts`
@@ -315,7 +301,7 @@ Plagiarism/
 ├── Back-end/                 # Python backend
 │   ├── main.py              # FastAPI application
 │   ├── checker.py           # Main plagiarism logic
-│   ├── ai_checker.py        # AI similarity functions
+│   ├── ai_checker.py        # Legacy semantic utilities (unused)
 │   ├── bin/                 # C++ binary for performance
 │   └── requirements.txt
 ├── docs/                    # Documentation
@@ -342,9 +328,8 @@ Plagiarism/
 
 ### Performance Notes
 
-- The C++ binary provides high-performance text comparison
-- AI similarity checking may take longer for large documents
-- Web source checking requires internet connection and API keys
+- The C++ binary provides high-performance text comparison.
+- Very large `.txt` files may take a bit longer because every character span is analyzed.
 
 ## Contributing
 

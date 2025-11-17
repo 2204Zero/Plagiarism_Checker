@@ -77,9 +77,7 @@ async def check_endpoint(
 	textB: Optional[str] = Form(default=None),
 ):
 	"""
-	Compare using two local files (mode=local) or use AI/web matching (mode=ai).
-	- local: requires fileA and (fileB or textB)
-	- ai: requires fileA; searches the web and computes semantic similarity
+	Compare two local files (mode=local) and return structured highlights.
 	"""
 	mode = (mode or "local").lower().strip()
 	path_a: Optional[str] = None
@@ -93,14 +91,11 @@ async def check_endpoint(
 		with open(path_b, "wb") as f:
 			f.write(await fileB.read())
 
-	if mode == "local":
-		if not path_a or (not path_b and not (textB or "").strip()):
-			return JSONResponse(status_code=400, content={"error": "local mode requires fileA and fileB or textB"})
-	elif mode == "ai":
-		if not path_a:
-			return JSONResponse(status_code=400, content={"error": "ai mode requires fileA"})
-	else:
-		return JSONResponse(status_code=400, content={"error": "mode must be 'local' or 'ai'"})
+	if mode != "local":
+		return JSONResponse(status_code=400, content={"error": "mode must be 'local'"})
+
+	if not path_a or (not path_b and not (textB or "").strip()):
+		return JSONResponse(status_code=400, content={"error": "local mode requires fileA and fileB or textB"})
 
 	result = checker.run_checks(file_a_path=path_a or "", file_b_path=path_b or "", text_b=textB or "", mode=mode)
 	return JSONResponse(content=result)

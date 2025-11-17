@@ -116,7 +116,7 @@ const Index = () => {
                   </div>
                   <h3 className="text-xl font-semibold">Multiple Formats</h3>
                   <p className="text-muted-foreground">
-                    Support for common text formats including TXT, DOC, DOCX, and more
+                    Optimized for clean TXT files to deliver the most reliable comparisons
                   </p>
                 </CardContent>
               </Card>
