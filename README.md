@@ -58,14 +58,14 @@ A full‑stack plagiarism detection tool with a React + Vite frontend and a Fast
     - `textB`: optional raw text instead of `fileB`.
 - Behavior: `checker.run_checks(...)` reads text from `fileA` and `fileB` (UTF‑8), calls the C++ binary for exact matches, and returns a JSON with `overallScore`, `localScore`, `highlights`, etc. AI and web fields are present but set to `0.0`/empty.
 - Health check: visit `http://localhost:8000/docs` (FastAPI’s OpenAPI UI) — the frontend probes this for connectivity.
-- Important: PDF/DOC/DOCX uploads are accepted in the UI, but the backend currently reads files as text; use `.txt` for best results (or add a text‑extraction step before sending data).
+- Important: TXT/DOC/DOCX uploads are accepted in the UI, but the backend currently reads files as text; use `.txt` for best results (or add a text‑extraction step before sending data).
 
 ## 5) Frontend Details
 
 - Stack: Vite + React + TypeScript, Tailwind CSS, shadcn‑ui, Radix primitives.
 - Routing: `App.tsx` defines routes `"/"`, `"/auth"`, `"/checker"`, `"/about"`, `"*"`.
 - Core components:
-  - `FileUpload`: Drag‑and‑drop, single file select, accepts `txt/pdf/doc/docx`.
+  - `FileUpload`: Drag‑and‑drop, single file select, accepts `txt/doc/docx`.
   - `PlagiarismGauge`: Animated circular gauge showing the plagiarism percentage.
   - `DetailedReportDialogue`: Modal showing overall score, local highlights, and (when available) web sources.
 - Service client: `src/services/api.ts` sets `API_BASE_URL = 'http://localhost:8000'` and implements `checkPlagiarism()` (POST `/check`) and `healthCheck()` that hits `/docs`.
@@ -120,7 +120,7 @@ Returns JSON with keys: `overallScore`, `localScore`, `highlights` (array of mat
 ## 9) Implementation Notes
 
 - C++ checker: `checker.py` writes temp files, runs `bin/cpp_checker*`, and parses JSON output. If the binary is missing, the service returns `localScore: 0.0` and an error message.
-- Text handling: files are read as UTF‑8 with `errors="ignore"`. For rich formats (PDF/DOCX), add a pre‑processing step to extract plain text before sending to `/check`.
+- Text handling: files are read as UTF‑8 with `errors="ignore"`. For rich formats (DOC/DOCX), add a pre‑processing step to extract plain text before sending to `/check`.
 - In‑memory auth: backend stores users/tokens in dictionaries; this is for demo only and not production‑grade.
 - Health probe: frontend checks `GET /docs` and toggles a “connected/disconnected” badge in the Checker page.
 
@@ -129,7 +129,7 @@ Returns JSON with keys: `overallScore`, `localScore`, `highlights` (array of mat
 - Current orchestrator supports only `mode=local`; AI and web checks exist in `ai_checker.py` but are not wired in.
 - Exact matching only from the C++ tool; semantic similarity and web results are placeholders in the JSON.
 - No persistent database; auth is ephemeral and resets on server restart.
-- File format caveat: PDF/DOC/DOCX accepted by UI, but backend expects plain text. Add text extraction to improve UX.
+- File format caveat: TXT/DOC/DOCX accepted by UI, but backend expects plain text. Add text extraction to improve UX.
 - Planned:
   - Integrate `semantic_similarity()` from `ai_checker.py` and unify scoring for `overallScore`.
   - Add web source scanning via SerpAPI/Bing with opt‑in env vars.

@@ -11,29 +11,41 @@
 
 class Document {
 public:
-	std::string text;
-	std::vector<int> lineStarts;
-	// Preprocess: lowercase and normalize whitespace
-	static std::string preprocess(const std::string& s) {
-		std::string out;
-		out.reserve(s.size());
-		bool lastSpace = false;
-		for (char c : s) {
-			if (std::isspace(static_cast<unsigned char>(c))) {
-				if (!lastSpace) {
-					out += ' ';
-					lastSpace = true;
-				}
-			} else {
-				out += std::tolower(static_cast<unsigned char>(c));
-				lastSpace = false;
-			}
-		}
-		return out;
-	}
-	explicit Document(std::string t) : text(preprocess(std::move(t))) {
-		calculateLineStarts();
-	}
+    std::string raw;
+    std::string text;
+    std::vector<int> indexMap; // map processed index -> raw index
+    std::vector<int> lineStarts;
+    // Preprocess: lowercase and normalize whitespace, preserve newlines, and build index map
+    static void preprocess(const std::string& s, std::string& out, std::vector<int>& map) {
+        out.clear();
+        map.clear();
+        out.reserve(s.size());
+        map.reserve(s.size());
+        bool lastSpace = false;
+        for (size_t i = 0; i < s.size(); ++i) {
+            char c = s[i];
+            unsigned char uc = static_cast<unsigned char>(c);
+            if (c == '\n') {
+                out += '\n';
+                map.push_back(static_cast<int>(i));
+                lastSpace = false;
+            } else if (std::isspace(uc)) {
+                if (!lastSpace) {
+                    out += ' ';
+                    map.push_back(static_cast<int>(i));
+                    lastSpace = true;
+                }
+            } else {
+                out += std::tolower(uc);
+                map.push_back(static_cast<int>(i));
+                lastSpace = false;
+            }
+        }
+    }
+    explicit Document(std::string t) : raw(std::move(t)) {
+        preprocess(raw, text, indexMap);
+        calculateLineStarts();
+    }
 
 	static Document fromFile(const std::string &path) {
 		std::ifstream in(path);
@@ -48,15 +60,15 @@ public:
 		return out;
 	}
 
-	void calculateLineStarts() {
-		lineStarts.clear();
-		lineStarts.push_back(0);
-		for (size_t i = 0; i < text.length(); ++i) {
-			if (text[i] == '\n') {
-				lineStarts.push_back(i + 1);
-			}
-		}
-	}
+    void calculateLineStarts() {
+        lineStarts.clear();
+        lineStarts.push_back(0);
+        for (size_t i = 0; i < text.length(); ++i) {
+            if (text[i] == '\n') {
+                lineStarts.push_back(static_cast<int>(i) + 1);
+            }
+        }
+    }
 
 	int getLineNumber(int position) const {
 		for (size_t i = 0; i < lineStarts.size(); ++i) {
@@ -67,11 +79,24 @@ public:
 		return static_cast<int>(lineStarts.size());
 	}
 
-	std::string getTextAround(int start, int end, int context = 50) const {
-		int contextStart = std::max(0, start - context);
-		int contextEnd = std::min(static_cast<int>(text.length()), end + context);
-		return text.substr(contextStart, contextEnd - contextStart);
-	}
+    std::string getTextAround(int start, int end, int context = 50) const {
+        int contextStart = std::max(0, start - context);
+        int contextEnd = std::min(static_cast<int>(text.length()), end + context);
+        return text.substr(contextStart, contextEnd - contextStart);
+    }
+
+    std::string rawSlice(int startProcessed, int endProcessed) const {
+        if (startProcessed < 0) startProcessed = 0;
+        if (endProcessed < startProcessed) endProcessed = startProcessed;
+        if (startProcessed >= (int)indexMap.size()) return std::string();
+        int rawStart = indexMap[startProcessed];
+        int rawEndIdx = std::min(endProcessed, (int)indexMap.size()) - 1;
+        if (rawEndIdx < startProcessed) rawEndIdx = startProcessed;
+        int rawEnd = indexMap[rawEndIdx] + 1;
+        rawEnd = std::min(rawEnd, (int)raw.size());
+        if (rawStart < 0 || rawStart >= (int)raw.size() || rawEnd <= rawStart) return std::string();
+        return raw.substr(rawStart, rawEnd - rawStart);
+    }
 };
 
 struct MatchSpan {
@@ -129,15 +154,15 @@ public:
 		spans.clear();
 		
 		// For identical files, return 100%
-		if (a.text == b.text) {
-			// Add a single span covering the entire text
-			spans.push_back({
-				0, (int)a.text.size(), 0, (int)b.text.size(),
-				a.text, b.text,
-				a.getLineNumber(0), b.getLineNumber(0)
-			});
-			return 100.0;
-		}
+        if (a.text == b.text) {
+            // Add a single span covering the entire text (raw slices)
+            spans.push_back({
+                0, (int)a.text.size(), 0, (int)b.text.size(),
+                a.rawSlice(0, (int)a.text.size()), b.rawSlice(0, (int)b.text.size()),
+                a.getLineNumber(0), b.getLineNumber(0)
+            });
+            return 100.0;
+        }
 		
 		// Choose a window size for substrings (e.g., 8 for better sensitivity with partial matches)
 		const int window = 8;
@@ -149,36 +174,59 @@ public:
 				if (a.text[i] == b.text[i]) matches++;
 			}
 			if (minLen > 0) {
-				spans.push_back({
-					0, minLen, 0, minLen,
-					a.text.substr(0, minLen), b.text.substr(0, minLen),
-					a.getLineNumber(0), b.getLineNumber(0)
-				});
-				return (double)matches * 100.0 / (double)minLen;
-			}
+                spans.push_back({
+                    0, minLen, 0, minLen,
+                    a.rawSlice(0, minLen), b.rawSlice(0, minLen),
+                    a.getLineNumber(0), b.getLineNumber(0)
+                });
+                return (double)matches * 100.0 / (double)minLen;
+            }
 			return 0.0;
 		}
 		
 		int total = 0;
 		int matched = 0;
-		// Use a sliding window with step size 4 for better performance while maintaining accuracy
-		for (int i = 0; i + window <= (int)a.text.size(); i += 4) {
-			std::string pattern = a.text.substr(i, window);
-			auto occ = findOccurrences(b.text, pattern);
-			total++;
-			if (!occ.empty()) {
-				matched++;
-				int startB = occ[0];
-				int endB = startB + window;
-				spans.push_back({
-					i, i + window, startB, endB,
-					pattern,
-					b.text.substr(startB, window),
-					a.getLineNumber(i),
-					b.getLineNumber(startB)
-				});
-			}
-		}
+        // Use a sliding window with step size 4 for better performance while maintaining accuracy
+        int lastEndB = -1;
+        for (int i = 0; i + window <= (int)a.text.size(); i += 4) {
+            std::string pattern = a.text.substr(i, window);
+            auto occ = findOccurrences(b.text, pattern);
+            total++;
+            if (!occ.empty()) {
+                matched++;
+                int startA = i;
+                int endA = i + window;
+                int startB = occ[0];
+                int endB = startB + window;
+                // Extend backwards
+                while (startA > 0 && startB > 0 && a.text[startA - 1] == b.text[startB - 1]) {
+                    startA--; startB--;
+                }
+                // Extend forwards
+                while (endA < (int)a.text.size() && endB < (int)b.text.size() && a.text[endA] == b.text[endB]) {
+                    endA++; endB++;
+                }
+                // Deduplicate overlapping on B
+                if (lastEndB >= 0 && startB <= lastEndB) {
+                    // overlap with previous; only extend previous if this goes further
+                    if (!spans.empty() && endB > spans.back().endB) {
+                        spans.back().endA = std::max(spans.back().endA, endA);
+                        spans.back().endB = endB;
+                        spans.back().textA = a.rawSlice(spans.back().startA, spans.back().endA);
+                        spans.back().textB = b.rawSlice(spans.back().startB, spans.back().endB);
+                    }
+                } else {
+                    spans.push_back({
+                        startA, endA, startB, endB,
+                        a.rawSlice(startA, endA),
+                        b.rawSlice(startB, endB),
+                        a.getLineNumber(startA),
+                        b.getLineNumber(startB)
+                    });
+                }
+                lastEndB = std::max(lastEndB, endB);
+            }
+        }
 		if (total == 0) return 0.0;
 		return (double)matched * 100.0 / (double)total;
 	}
@@ -277,12 +325,12 @@ int main(int argc, char *argv[]) {
 		localScore = 0.4 * rkScore + 0.6 * jcScore;
 	}
 
-	// Build JSON with matches from RK
-	std::ostringstream out;
-	out << "{\"localScore\":" << localScore << ",";
-	out << "\"rabinKarpScore\":" << rkScore << ",";
-	out << "\"jaccardScore\":" << jcScore << ",";
-	out << "\"matches\":[";
+    // Build JSON with matches from RK
+    std::ostringstream out;
+    out << "{\"localScore\":" << localScore << ",";
+    out << "\"rabinKarpScore\":" << rkScore << ",";
+    out << "\"jaccardScore\":" << jcScore << ",";
+    out << "\"matches\":[";
 	auto spans = rk.matches();
 	for (size_t i = 0; i < spans.size(); ++i) {
 		const auto &sp = spans[i];

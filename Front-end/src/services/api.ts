@@ -5,6 +5,10 @@ export interface PlagiarismCheckResult {
   localScore: number;
   aiScore: number;
   webScore: number;
+  sourceFullText?: string;
+  targetFullText?: string;
+  sourceFileName?: string;
+  targetFileName?: string;
   webSources: Array<{
     title: string;
     url: string;
@@ -17,9 +21,21 @@ export interface PlagiarismCheckResult {
     score: number;
     textA?: string;
     textB?: string;
+    lineTextA?: string;
+    lineTextB?: string;
     lineA?: number;
     lineB?: number;
+    lineStartA?: number;
+    lineEndA?: number;
+    lineStartB?: number;
+    lineEndB?: number;
+    charStartA?: number;
+    charEndA?: number;
+    charStartB?: number;
+    charEndB?: number;
     matchType?: string;
+    sourceFile?: string;
+    targetFile?: string;
   }>;
   localHighlights?: Array<{
     start: number;
@@ -28,9 +44,21 @@ export interface PlagiarismCheckResult {
     score: number;
     textA?: string;
     textB?: string;
+    lineTextA?: string;
+    lineTextB?: string;
     lineA?: number;
     lineB?: number;
+    lineStartA?: number;
+    lineEndA?: number;
+    lineStartB?: number;
+    lineEndB?: number;
+    charStartA?: number;
+    charEndA?: number;
+    charStartB?: number;
+    charEndB?: number;
     matchType?: string;
+    sourceFile?: string;
+    targetFile?: string;
   }>;
   aiHighlights?: Array<{
     start: number;
@@ -41,7 +69,17 @@ export interface PlagiarismCheckResult {
     textB?: string;
     lineA?: number;
     lineB?: number;
+    lineStartA?: number;
+    lineEndA?: number;
+    lineStartB?: number;
+    lineEndB?: number;
+    charStartA?: number;
+    charEndA?: number;
+    charStartB?: number;
+    charEndB?: number;
     matchType?: string;
+    sourceFile?: string;
+    targetFile?: string;
   }>;
   webHighlights?: Array<{
     start: number;
@@ -52,7 +90,17 @@ export interface PlagiarismCheckResult {
     textB?: string;
     lineA?: number;
     lineB?: number;
+    lineStartA?: number;
+    lineEndA?: number;
+    lineStartB?: number;
+    lineEndB?: number;
+    charStartA?: number;
+    charEndA?: number;
+    charStartB?: number;
+    charEndB?: number;
     matchType?: string;
+    sourceFile?: string;
+    targetFile?: string;
   }>;
   mode?: string;
 }
@@ -61,6 +109,7 @@ export interface PlagiarismCheckRequest {
   mode: 'local';
   fileA: File;
   fileB: File;
+  textB?: string;
 }
 
 export class PlagiarismAPI {
