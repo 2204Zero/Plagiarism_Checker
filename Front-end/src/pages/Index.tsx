@@ -114,9 +114,9 @@ const Index = () => {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <FileCheck className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold">Multiple Formats</h3>
+                  <h3 className="text-xl font-semibold">TXT Optimized</h3>
                   <p className="text-muted-foreground">
-                    Optimized for clean TXT files to deliver the most reliable comparisons
+                    Purpose-built for clean .txt files to deliver the most reliable comparisons
                   </p>
                 </CardContent>
               </Card>

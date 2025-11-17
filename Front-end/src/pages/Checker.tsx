@@ -87,10 +87,13 @@ const Checker = () => {
       
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 space-y-2">
             <h1 className="text-4xl font-bold mb-4">Check for Plagiarism</h1>
             <p className="text-lg text-muted-foreground">
-              Upload two documents to compare and detect plagiarism using advanced local file comparison
+              Upload two plain-text (.txt) files to compare and detect plagiarism using advanced local file comparison.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Rich formats such as DOC/DOCX/PDF must be converted to .txt before uploading.
             </p>
             {isBackendConnected !== null && (
               <div className="mt-4">
@@ -113,7 +116,7 @@ const Checker = () => {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Upload First Document</CardTitle>
+                  <CardTitle>Upload First TXT File</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <FileUpload
@@ -125,7 +128,7 @@ const Checker = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Upload Second Document (For Local Check)</CardTitle>
+                  <CardTitle>Upload Second TXT File</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <FileUpload

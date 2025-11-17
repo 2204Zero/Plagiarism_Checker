@@ -72,6 +72,9 @@ const FileUpload = ({ onFileSelect, selectedFile }: FileUploadProps) => {
             <p className="text-sm text-muted-foreground mt-2">
               Supports TXT only (Max 10MB)
             </p>
+            <p className="text-xs text-muted-foreground">
+              Convert other formats to plain text before uploading.
+            </p>
           </div>
         </div>
       )}
