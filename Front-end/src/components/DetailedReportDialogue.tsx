@@ -218,13 +218,7 @@ const DetailedReportDialog = ({
                                   <span>{highlight.sourceFile || "File A"}</span>
                                   <span>{sourcePosition}</span>
                                 </div>
-                                <div className="bg-orange-50 dark:bg-orange-950/20 p-3 rounded border border-orange-200 dark:border-orange-900 font-mono leading-relaxed">
-                                  {highlightMatches(
-                                    highlight.lineTextA ?? highlight.textA,
-                                    highlight.textA,
-                                    "bg-orange-300 text-orange-950 dark:bg-orange-500/50 dark:text-white"
-                                  )}
-                                </div>
+                                {/* No inline source text — show only filename and line number */}
                               </div>
                             </div>
 
@@ -237,13 +231,7 @@ const DetailedReportDialog = ({
                                   <span>{highlight.targetFile || "File B"}</span>
                                   <span>{matchedPosition}</span>
                                 </div>
-                                <div className="bg-slate-50 dark:bg-slate-900/30 p-3 rounded border border-slate-200 dark:border-slate-800 font-mono leading-relaxed">
-                                  {highlightMatches(
-                                    highlight.lineTextB ?? highlight.textB,
-                                    highlight.textB,
-                                    "bg-emerald-200 text-emerald-900 dark:bg-emerald-500/40 dark:text-white"
-                                  )}
-                                </div>
+                                {/* No inline matched text — show only filename and line number */}
                               </div>
                             </div>
                           </div>

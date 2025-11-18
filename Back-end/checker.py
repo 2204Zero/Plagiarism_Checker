@@ -205,8 +205,41 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
             offsets.append(0)
         return offsets
 
-    line_offsets_a = _compute_line_offsets(text_a)
-    line_offsets_b = _compute_line_offsets(text_b_val)
+    def _compute_sentence_offsets(text: str, max_segment_len: int = 300) -> List[int]:
+        # Build virtual line offsets by splitting on sentence boundaries and hard length caps
+        offsets: List[int] = [0]
+        last = 0
+        i = 0
+        n = len(text)
+        while i < n:
+            # sentence boundary heuristic: end at ., !, ? followed by whitespace
+            if text[i] in ".!?":
+                # advance past trailing whitespace
+                j = i + 1
+                while j < n and text[j].isspace() and text[j] not in "\n\r":
+                    j += 1
+                if j - last >= 1:
+                    offsets.append(j)
+                    last = j
+                i = j
+                continue
+            # hard cap to avoid huge segments
+            if (i - last) >= max_segment_len:
+                offsets.append(i)
+                last = i
+            i += 1
+        # ensure final boundary at end
+        if offsets[-1] != n:
+            offsets.append(n)
+        # unique and sorted starts only
+        starts = sorted(set(offsets[:-1]))
+        return starts if starts else [0]
+
+    # Real line offsets based on actual newlines (used for both matching and display)
+    real_line_offsets_a = _compute_line_offsets(text_a)
+    real_line_offsets_b = _compute_line_offsets(text_b_val)
+    line_offsets_a = real_line_offsets_a
+    line_offsets_b = real_line_offsets_b
 
     local_highlights: List[Dict[str, Any]] = []
     file_a_name = os.path.basename(file_a_path) if file_a_path else "fileA"
@@ -264,12 +297,13 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
             refined_endA = raw_endA
             refined_startB = raw_startB
             refined_endB = raw_endB
-            lineA, src_line_text = _line_meta(text_a, line_offsets_a, refined_startA, refined_endA)
-            lineB, tgt_line_text = _line_meta(text_b_val, line_offsets_b, refined_startB, refined_endB)
-            lineStartA = lineA
-            lineEndA = _line_number(line_offsets_a, max(refined_endA - 1, refined_startA))
-            lineStartB = lineB
-            lineEndB = _line_number(line_offsets_b, max(refined_endB - 1, refined_startB))
+            # Use real line offsets for display
+            lineA, src_line_text = _line_meta(text_a, real_line_offsets_a, refined_startA, refined_endA)
+            lineB, tgt_line_text = _line_meta(text_b_val, real_line_offsets_b, refined_startB, refined_endB)
+            lineStartA = _line_number(real_line_offsets_a, refined_startA)
+            lineEndA = _line_number(real_line_offsets_a, max(refined_endA - 1, refined_startA))
+            lineStartB = _line_number(real_line_offsets_b, refined_startB)
+            lineEndB = _line_number(real_line_offsets_b, max(refined_endB - 1, refined_startB))
 
             single_line_match = (
                 src_line_text
@@ -461,6 +495,107 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
         return result
 
     local_highlights = _dedup_highlights(local_highlights)
+
+    def _normalize_with_map(s: str) -> tuple[str, List[int]]:
+        out = []
+        idx: List[int] = []
+        last_space = False
+        for i, ch in enumerate(s):
+            if ch in "\r\n":
+                continue
+            if ch.isspace():
+                if not last_space:
+                    out.append(" ")
+                    idx.append(i)
+                    last_space = True
+            else:
+                out.append(ch.lower())
+                idx.append(i)
+                last_space = False
+        text_norm = "".join(out).strip()
+        return text_norm, idx
+
+    def _split_sentences(s: str) -> List[str]:
+        import re
+        parts = re.split(r"(?<=[.!?])\s+", s)
+        return [p.strip() for p in parts if p.strip()]
+
+    sentence_highlights: List[Dict[str, Any]] = []
+
+    linesA: List[tuple[int, int]] = []
+    for idx in range(len(real_line_offsets_a)):
+        start = real_line_offsets_a[idx]
+        end = real_line_offsets_a[idx + 1] if idx + 1 < len(real_line_offsets_a) else len(text_a)
+        linesA.append((start, end))
+
+    linesB: List[tuple[int, int]] = []
+    for idx in range(len(real_line_offsets_b)):
+        start = real_line_offsets_b[idx]
+        end = real_line_offsets_b[idx + 1] if idx + 1 < len(real_line_offsets_b) else len(text_b_val)
+        linesB.append((start, end))
+
+    b_sent_index: Dict[int, List[tuple[str, str]]] = {}
+    for j, (sb, eb) in enumerate(linesB, start=1):
+        raw_line_b = text_b_val[sb:eb]
+        norm_line_b, map_b = _normalize_with_map(raw_line_b)
+        b_sent_index[j] = [(seg, norm_line_b) for seg in _split_sentences(norm_line_b)]
+
+    seen_pairs: set[tuple[int, int, str]] = set()
+    for i, (sa, ea) in enumerate(linesA, start=1):
+        raw_line_a = text_a[sa:ea]
+        norm_line_a, map_a = _normalize_with_map(raw_line_a)
+        a_sents = _split_sentences(norm_line_a)
+        for seg in a_sents:
+            if len(seg) < 8:
+                continue
+            for j, entries in b_sent_index.items():
+                for bseg, _bnorm_full in entries:
+                    if seg == bseg and (i, j, seg) not in seen_pairs:
+                        idx_a = norm_line_a.find(seg)
+                        if idx_a < 0:
+                            continue
+                        raw_line_b_full = text_b_val[linesB[j - 1][0]:linesB[j - 1][1]]
+                        norm_line_b2, map_b2 = _normalize_with_map(raw_line_b_full)
+                        idx_b = norm_line_b2.find(seg)
+                        if idx_b < 0:
+                            continue
+                        start_a_local = map_a[min(idx_a, len(map_a) - 1)]
+                        end_a_local = map_a[min(idx_a + len(seg) - 1, len(map_a) - 1)] + 1
+                        start_b_raw = map_b2[min(idx_b, len(map_b2) - 1)]
+                        end_b_raw = map_b2[min(idx_b + len(seg) - 1, len(map_b2) - 1)] + 1
+                        char_start_a = sa + start_a_local
+                        char_end_a = sa + end_a_local
+                        char_start_b = linesB[j - 1][0] + start_b_raw
+                        char_end_b = linesB[j - 1][0] + end_b_raw
+                        # Compute real line numbers from raw char positions
+                        lineA_real = _line_number(real_line_offsets_a, char_start_a)
+                        lineB_real = _line_number(real_line_offsets_b, char_start_b)
+
+                        sentence_highlights.append({
+                            "start": char_start_b,
+                            "end": char_end_b,
+                            "source": "local",
+                            "score": cpp_result.get("localScore", 0.0),
+                            "textA": text_a[char_start_a:char_end_a],
+                            "textB": text_b_val[char_start_b:char_end_b],
+                            "lineA": lineA_real,
+                            "lineB": lineB_real,
+                            "lineStartA": lineA_real,
+                            "lineEndA": _line_number(real_line_offsets_a, max(char_end_a - 1, char_start_a)),
+                            "lineStartB": lineB_real,
+                            "lineEndB": _line_number(real_line_offsets_b, max(char_end_b - 1, char_start_b)),
+                            "charStartA": char_start_a,
+                            "charEndA": char_end_a,
+                            "charStartB": char_start_b,
+                            "charEndB": char_end_b,
+                            "matchType": "sentence",
+                            "sourceFile": file_a_name,
+                            "targetFile": file_b_name,
+                        })
+                        seen_pairs.add((i, j, seg))
+
+    if sentence_highlights:
+        local_highlights = _dedup_highlights(sentence_highlights)
 
     return {
         "overallScore": overall,
