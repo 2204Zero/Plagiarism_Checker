@@ -146,9 +146,9 @@ const Index = () => {
               <p className="text-lg text-muted-foreground">
                 Join thousands of users who trust our plagiarism checker for accurate results
               </p>
-              <Link to="/auth">
+              <Link to="/checker">
                 <Button size="lg" className="text-lg px-8 shadow-glow">
-                  Get Started Free
+                  Get Started
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>

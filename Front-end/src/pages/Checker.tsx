@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+// auth removed
 import Navbar from "@/components/Navbar";
 import FileUpload from "@/components/FileUpload";
 import PlagiarismGauge from "@/components/PlagiarismGauge";
@@ -13,7 +12,6 @@ import { PlagiarismAPI, PlagiarismCheckResult } from "@/services/api";
 
 const Checker = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [secondFile, setSecondFile] = useState<File | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -23,13 +21,7 @@ const Checker = () => {
   const [isBackendConnected, setIsBackendConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Only check backend connection, no authentication required
     PlagiarismAPI.healthCheck().then(setIsBackendConnected);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/auth");
-      }
-    });
   }, []);
 
   const handleCheck = async () => {
