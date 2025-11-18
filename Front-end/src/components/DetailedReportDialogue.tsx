@@ -152,7 +152,40 @@ const DetailedReportDialog = ({
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{checkResult.overallScore.toFixed(1)}%</div>
+                      <div className="text-2xl font-bold text-primary">{(() => {
+                        const highlights = checkResult.localHighlights?.length ? checkResult.localHighlights : checkResult.highlights;
+                        const totalA = checkResult.sourceFullText?.length ?? 0;
+                        const totalB = checkResult.targetFullText?.length ?? 0;
+                        const coverage = (intervals: Array<{ s: number; e: number }>, total: number) => {
+                          if (!intervals.length || !total) return 0;
+                          const sorted = intervals
+                            .map((x) => ({ s: Math.max(0, Math.min(x.s, total)), e: Math.max(0, Math.min(x.e, total)) }))
+                            .filter((x) => x.e > x.s)
+                            .sort((a, b) => a.s - b.s);
+                          let covered = 0;
+                          let cs = sorted[0].s;
+                          let ce = sorted[0].e;
+                          for (let k = 1; k < sorted.length; k++) {
+                            const { s, e } = sorted[k];
+                            if (s <= ce) ce = Math.max(ce, e);
+                            else {
+                              covered += ce - cs;
+                              cs = s;
+                              ce = e;
+                            }
+                          }
+                          covered += ce - cs;
+                          return (covered * 100) / total;
+                        };
+                        const overall = checkResult.overallScore;
+                        if ((overall === 0) && highlights && totalA > 0 && totalB > 0) {
+                          const aIntervals = highlights.map((h) => ({ s: (h.charStartA ?? (h.start ?? 0)) as number, e: (h.charEndA ?? (h.end ?? 0)) as number }));
+                          const bIntervals = highlights.map((h) => ({ s: (h.charStartB ?? (h.start ?? 0)) as number, e: (h.charEndB ?? (h.end ?? 0)) as number }));
+                          const mean = (coverage(aIntervals, totalA) + coverage(bIntervals, totalB)) / 2;
+                          return `${mean.toFixed(1)}%`;
+                        }
+                        return `${overall.toFixed(1)}%`;
+                      })()}</div>
                       <div className="text-sm text-muted-foreground">Overall Score</div>
                     </div>
                   </CardContent>
@@ -160,7 +193,40 @@ const DetailedReportDialog = ({
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-500">{checkResult.localScore.toFixed(1)}%</div>
+                      <div className="text-2xl font-bold text-orange-500">{(() => {
+                        const highlights = checkResult.localHighlights?.length ? checkResult.localHighlights : checkResult.highlights;
+                        const totalA = checkResult.sourceFullText?.length ?? 0;
+                        const totalB = checkResult.targetFullText?.length ?? 0;
+                        const coverage = (intervals: Array<{ s: number; e: number }>, total: number) => {
+                          if (!intervals.length || !total) return 0;
+                          const sorted = intervals
+                            .map((x) => ({ s: Math.max(0, Math.min(x.s, total)), e: Math.max(0, Math.min(x.e, total)) }))
+                            .filter((x) => x.e > x.s)
+                            .sort((a, b) => a.s - b.s);
+                          let covered = 0;
+                          let cs = sorted[0].s;
+                          let ce = sorted[0].e;
+                          for (let k = 1; k < sorted.length; k++) {
+                            const { s, e } = sorted[k];
+                            if (s <= ce) ce = Math.max(ce, e);
+                            else {
+                              covered += ce - cs;
+                              cs = s;
+                              ce = e;
+                            }
+                          }
+                          covered += ce - cs;
+                          return (covered * 100) / total;
+                        };
+                        const local = checkResult.localScore;
+                        if ((local === 0) && highlights && totalA > 0 && totalB > 0) {
+                          const aIntervals = highlights.map((h) => ({ s: (h.charStartA ?? (h.start ?? 0)) as number, e: (h.charEndA ?? (h.end ?? 0)) as number }));
+                          const bIntervals = highlights.map((h) => ({ s: (h.charStartB ?? (h.start ?? 0)) as number, e: (h.charEndB ?? (h.end ?? 0)) as number }));
+                          const mean = (coverage(aIntervals, totalA) + coverage(bIntervals, totalB)) / 2;
+                          return `${mean.toFixed(1)}%`;
+                        }
+                        return `${local.toFixed(1)}%`;
+                      })()}</div>
                       <div className="text-sm text-muted-foreground">Local File Comparison</div>
                     </div>
                   </CardContent>

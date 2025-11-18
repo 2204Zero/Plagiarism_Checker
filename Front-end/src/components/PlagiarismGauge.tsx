@@ -8,18 +8,23 @@ const PlagiarismGauge = ({ score }: PlagiarismGaugeProps) => {
   const [animatedScore, setAnimatedScore] = useState(0);
 
   useEffect(() => {
+    const target = Math.max(0, Math.round(score));
+    setAnimatedScore(0);
+    if (target === 0) {
+      setAnimatedScore(0);
+      return;
+    }
     const timer = setTimeout(() => {
       let current = 0;
       const interval = setInterval(() => {
         current += 1;
         setAnimatedScore(current);
-        if (current >= score) {
+        if (current >= target) {
           clearInterval(interval);
         }
       }, 20);
       return () => clearInterval(interval);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [score]);
 

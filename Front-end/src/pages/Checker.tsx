@@ -62,8 +62,61 @@ const Checker = () => {
         fileB: secondFile,
       });
 
-      setCheckResult(result);
-      setPlagiarismScore(result.overallScore);
+      // Fallback score from highlight coverage when backend returns 0 but highlights exist
+      const highlights = result.localHighlights?.length ? result.localHighlights : result.highlights;
+      const coverage = (intervals: Array<{ s: number; e: number }>, total: number) => {
+        if (!intervals.length || !total) return 0;
+        const sorted = intervals
+          .map((x) => ({ s: Math.max(0, Math.min(x.s, total)), e: Math.max(0, Math.min(x.e, total)) }))
+          .filter((x) => x.e > x.s)
+          .sort((a, b) => a.s - b.s);
+        let covered = 0;
+        let cs = sorted[0].s;
+        let ce = sorted[0].e;
+        for (let k = 1; k < sorted.length; k++) {
+          const { s, e } = sorted[k];
+          if (s <= ce) ce = Math.max(ce, e);
+          else {
+            covered += ce - cs;
+            cs = s;
+            ce = e;
+          }
+        }
+        covered += ce - cs;
+        return (covered * 100) / total;
+      };
+
+      let displayOverall = result.overallScore;
+      let displayLocal = result.localScore;
+      if ((displayOverall === 0 || displayLocal === 0) && highlights && highlights.length > 0) {
+        const aIntervals = highlights.map((h) => ({
+          s: (h.charStartA ?? (h.start ?? 0)) as number,
+          e: (h.charEndA ?? (h.end ?? 0)) as number,
+        }));
+        const bIntervals = highlights.map((h) => ({
+          s: (h.charStartB ?? (h.start ?? 0)) as number,
+          e: (h.charEndB ?? (h.end ?? 0)) as number,
+        }));
+  // read full text directly from uploaded files if backend didn't send them
+const totalA = result.sourceFullText?.length
+  ?? (await selectedFile.text()).length;
+
+const totalB = result.targetFullText?.length
+  ?? (await secondFile.text()).length;
+
+if (totalA > 0 && totalB > 0) {
+  const aCov = coverage(aIntervals, totalA);
+  const bCov = coverage(bIntervals, totalB);
+  const mean = (aCov + bCov) / 2;
+
+  displayOverall = mean;
+  displayLocal = mean;
+}
+
+      }
+
+      setCheckResult({ ...result, overallScore: displayOverall, localScore: displayLocal });
+      setPlagiarismScore(displayOverall);
 
       toast({
         title: "Check completed!",
@@ -172,7 +225,7 @@ const Checker = () => {
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-semibold mb-2">
-                        {plagiarismScore}% Plagiarism Found
+                        {plagiarismScore.toFixed(1)}% Plagiarism Found
                       </p>
                       <p className="text-muted-foreground mb-6">
                         Analyzed using local file comparison
