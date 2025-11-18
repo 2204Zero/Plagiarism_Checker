@@ -597,9 +597,42 @@ def run_checks(*, file_a_path: str, file_b_path: str, text_b: str, mode: str) ->
     if sentence_highlights:
         local_highlights = _dedup_highlights(sentence_highlights)
 
+    # Fallback scoring based on highlight coverage when C++ score is 0
+    def _coverage(intervals: List[tuple[int, int]], total_len: int) -> float:
+        if total_len <= 0 or not intervals:
+            return 0.0
+        intervals = sorted(intervals, key=lambda x: x[0])
+        merged = []
+        cs, ce = intervals[0]
+        for s, e in intervals[1:]:
+            if s <= ce:
+                ce = max(ce, e)
+            else:
+                merged.append((cs, ce))
+                cs, ce = s, e
+        merged.append((cs, ce))
+        covered = sum(e - s for s, e in merged if e > s)
+        return float(covered) * 100.0 / float(total_len)
+
+    local_score = float(cpp_result.get("localScore", 0.0))
+    if (local_score == 0.0) and local_highlights:
+        a_intervals = []
+        b_intervals = []
+        for h in local_highlights:
+            try:
+                a_intervals.append((int(h.get("charStartA", h.get("start", 0))), int(h.get("charEndA", h.get("end", 0)))))
+                b_intervals.append((int(h.get("charStartB", h.get("start", 0))), int(h.get("charEndB", h.get("end", 0)))))
+            except Exception:
+                continue
+        a_cov = _coverage(a_intervals, len(text_a))
+        b_cov = _coverage(b_intervals, len(text_b_val))
+        # Use mean coverage as score
+        local_score = (a_cov + b_cov) / 2.0
+        overall = local_score
+
     return {
         "overallScore": overall,
-        "localScore": cpp_result.get("localScore", 0.0),
+        "localScore": local_score,
         "highlights": local_highlights,
         "localHighlights": local_highlights,
         "mode": "local",
