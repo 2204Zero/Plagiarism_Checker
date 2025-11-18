@@ -67,7 +67,7 @@ A full‑stack plagiarism detection tool with a React + Vite frontend and a Fast
 - Core components:
   - `FileUpload`: Drag‑and‑drop, single file select, accepts `.txt`.
   - `PlagiarismGauge`: Animated circular gauge showing the plagiarism percentage.
-  - `DetailedReportDialogue`: Modal showing overall score, local highlights, and (when available) web sources.
+  - `DetailedReportDialogue`: Modal showing overall score and clean highlights. Source/Matched cards show only file names and real line numbers; overlap snippets and full‑document views are available below for context.
 - Service client: `src/services/api.ts` sets `API_BASE_URL = 'http://localhost:8000'` and implements `checkPlagiarism()` (POST `/check`) and `healthCheck()` that hits `/docs`.
 
 ## 6) Setup & Development
@@ -108,7 +108,7 @@ curl -X POST "http://localhost:8000/check" \
   -F fileB=@test_files/sample2.txt
 ```
 
-Returns JSON with keys: `overallScore`, `localScore`, and `highlights` (array of matches with `start`, `end`, `textA`, `textB`, `lineA`, `lineB`, `matchType`).
+Returns JSON with keys: `overallScore`, `localScore`, and `highlights` (array of matches with `start`, `end`, `textA`, `textB`, `lineA`, `lineB`, `matchType`, `sourceFile`, `targetFile`, optional `lineStartA/B`, `lineEndA/B`, `charStartA/B`, `charEndA/B`). Top‑level may include `sourceFullText`, `targetFullText`.
 
 ## 8) Configuration
 
@@ -120,6 +120,12 @@ Returns JSON with keys: `overallScore`, `localScore`, and `highlights` (array of
 
 - C++ checker: `checker.py` writes temp files, runs `bin/cpp_checker*`, and parses JSON output. If the binary is missing, the service returns `localScore: 0.0` and an error message.
 - Text handling: files are read as UTF‑8 with `errors="ignore"`; only `.txt` uploads are supported.
+- Matching engine:
+  - C++ checker preserves newlines and computes accurate line starts.
+  - Extends and merges contiguous spans; processes all target occurrences for a seed.
+  - Python refinement aligns matches to the longest equal block per line, merges equal regions in paragraphs, and performs sentence‑level matching line‑by‑line with spacing normalization.
+  - Deduplicates overlapping highlights, keeping the longest/highest‑priority entry.
+  - Real line numbers are derived from actual newline offsets for both source and matched positions.
 - In‑memory auth: backend stores users/tokens in dictionaries; this is for demo only and not production‑grade.
 - Health probe: frontend checks `GET /docs` and toggles a “connected/disconnected” badge in the Checker page.
 
@@ -152,7 +158,8 @@ Returns JSON with keys: `overallScore`, `localScore`, and `highlights` (array of
 
 - “Backend Disconnected” badge: ensure `python main.py` is running and `http://localhost:8000/docs` is reachable.
 - “Failed to check plagiarism”: verify `bin/cpp_checker.exe` exists (Windows) or compile the Unix binary; check file readability and size.
-- Empty highlights: use `.txt` files with overlapping content; non‑text formats may not yield matches.
+- Empty highlights: ensure files contain overlapping sentences. Matching is line‑by‑line and sentence‑based; spacing is normalized, but actual newlines are used for line numbers.
+- Real line numbers: lines are derived from actual `\n` boundaries. Files without newlines will show Line 1.
 - Port conflicts: change ports in `vite.config.ts` (frontend `8080`) or `uvicorn.run` in `main.py` (`8000`).
 
 ## 14) License & Contributions
@@ -165,6 +172,8 @@ A comprehensive plagiarism detection system built around precise local compariso
 ## Features
 
 - **Local File Comparison**: Compare two documents directly for similarity
+- **Line‑by‑Line Sentence Matching**: Robust sentence detection per real line, spacing normalized
+- **Clear Results**: File names and real line numbers in Source/Matched cards; overlap snippets optional
 - **Real-time Results**: Get instant plagiarism scores and detailed reports
 - **Modern UI**: Built with React, TypeScript, and Tailwind CSS
 - **Backend API**: FastAPI-based Python backend with C++ performance optimization
@@ -349,3 +358,12 @@ For issues and questions:
 1. Check the troubleshooting section
 2. Review the API documentation at `http://localhost:8000/docs`
 3. Create an issue in the repository
+### Recent Improvements
+
+- Matching accuracy upgrades:
+  - Newline preservation and accurate line mapping in the C++ checker.
+  - Multi‑occurrence detection and contiguous span merging for partial matches.
+  - Python post‑processing adds line‑by‑line sentence matching and robust deduplication.
+- Results clarity in the UI:
+  - Source and Matched sections show only file names and real line numbers (clean and scannable).
+  - Overlap snippets remain available for visual confirmation.
