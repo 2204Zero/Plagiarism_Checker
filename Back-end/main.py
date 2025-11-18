@@ -8,6 +8,8 @@ import secrets
 from typing import Optional, Dict
 from pydantic import BaseModel
 
+
+
 # Ensure this directory is on sys.path so `import checker` works despite hyphen in parent dir name
 CURRENT_DIR = os.path.dirname(__file__)
 if CURRENT_DIR not in sys.path:
@@ -17,6 +19,23 @@ import checker  # type: ignore
 
 
 app = FastAPI(title="Plagiarism Checker API", version="0.1.0")
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return """
+    <h1>Plagiarism Checker API</h1>
+    <p>Your backend is running successfully!</p>
+    <p>Available endpoints:</p>
+    <ul>
+        <li><code>POST /auth/signup</code></li>
+        <li><code>POST /auth/login</code></li>
+        <li><code>POST /check</code></li>
+    </ul>
+    <p>Made by Lakshya 🚀</p>
+    """
+
 
 app.add_middleware(
 	CORSMiddleware,
