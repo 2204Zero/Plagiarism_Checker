@@ -38,48 +38,25 @@ const Auth = () => {
   const handleEmailAuth = async (type: "login" | "signup") => {
     try {
       setIsLoading(true);
-      
-      // Use direct API call instead of Supabase client
-      const response = await fetch(`http://localhost:8000/auth/${type}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Authentication failed');
-      }
-      
-      const data = await response.json();
-      
-      // Store auth token in localStorage
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user_email', email);
-      
       if (type === "signup") {
-        toast({
-          title: "Success!",
-          description: "Account created successfully.",
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/checker` },
         });
+        if (error) throw error;
+        toast({ title: "Success!", description: "Account created. Check your email if confirmation is enabled." });
       } else {
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully signed in.",
-        });
-        
-        // Redirect after successful login
-        navigate("/checker");
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (data?.session) {
+          toast({ title: "Welcome back!", description: "You've successfully signed in." });
+          navigate("/checker");
+        }
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
