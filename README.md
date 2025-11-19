@@ -7,7 +7,7 @@ A full‑stack plagiarism detection tool with a React + Vite frontend and a Fast
 - Purpose: Detect overlapping content between two documents and present clear, actionable reports.
 - Architecture: `Front-end/` (React, TypeScript, Tailwind, shadcn‑ui) + `Back-end/` (FastAPI, Python, C++ binary).
 - Status: Local file comparison implemented end‑to‑end.
-- Ports: Frontend on `http://localhost:8080`, backend on `http://localhost:8000`.
+- Ports: Frontend on `https://plagiarism-checker-liard.vercel.app/`, backend on `https://plagiarism-checker-1-rv8l.onrender.com/`.
 
 ## 2) Repository Structure
 
